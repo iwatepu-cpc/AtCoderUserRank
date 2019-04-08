@@ -97,4 +97,5 @@ async def rating(ctx):
 async def on_ready():
     print('Logged in as {0.user}'.format(bot))
 
-bot.run('NTAxODAzODQwODI4NDczMzQ0.XKtqpw.4eNwLLsIonBedmXjDB4JXTgBfyk')
+with open('token') as f:
+    bot.run(f.read().strip())
