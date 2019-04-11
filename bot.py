@@ -1,4 +1,5 @@
 import discord
+import os
 from discord.ext import commands
 from discord.utils import get
 from AtCoderInfoCache import AtCoderInfoCache
@@ -97,5 +98,8 @@ async def rating(ctx):
 async def on_ready():
     print('Logged in as {0.user}'.format(bot))
 
-with open('token') as f:
-    bot.run(f.read().strip())
+def read_token_from_file():
+    with open('token') as f:
+        return f.read().strip()
+
+bot.run(os.getenv("DISCORD_TOKEN", read_token_from_file()))
