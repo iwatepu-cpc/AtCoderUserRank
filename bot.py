@@ -99,7 +99,13 @@ async def on_ready():
     print('Logged in as {0.user}'.format(bot))
 
 def read_token_from_file():
+    print('Use token file')
     with open('token') as f:
         return f.read().strip()
 
-bot.run(os.getenv("DISCORD_TOKEN", read_token_from_file()))
+token = os.getenv("DISCORD_TOKEN")
+if token is None:
+    token = read_token_from_file()
+else:
+    print('Use environment variable token')
+bot.run(token)
