@@ -6,6 +6,18 @@ url = 'https://atcoder.jp/ranking?f.UserScreenName='
 def get_user(userName):
     q = requests.get(url+userName)
     html = bs4.BeautifulSoup(q.text, 'html.parser')
+    elem = html.select('.username')
+    if len(elem) == 0:
+        return {
+                'name': userName,
+                'global_rank': 0,
+                'local_rank': 0,
+                'affiliation': '',
+                'rating': 0,
+                'highest_rating': 0,
+                'competitions': 0,
+                'wins': 0,
+                }
     name = html.select('.username')[0].text
     rank = html.select('td.no-break')[0].text.split()
     global_rank = int(rank[0])

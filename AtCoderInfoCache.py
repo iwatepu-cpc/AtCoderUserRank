@@ -15,14 +15,18 @@ class AtCoderInfoCache:
         if self.user_list is None:
             raise Error('UserList file not found: {}'.format(user_list_path))
         if self.cache is None:
+            self.cache = AtCoderInfoCache.__get_users(self.user_list)
             self.cache = {username:AtCoderInfo.get_user(username) for username in self.user_list}
             AtCoderInfoCache.__save_cache(cache_path, self.cache)
 
     def get_latest(self):
-        records = {username:AtCoderInfo.get_user(username) for username in self.user_list}
+        records = AtCoderInfoCache.__get_users(self.user_list)
         AtCoderInfoCache.__save_cache(self.cache_path, records)
-        diffs = {username:AtCoderInfoCache.__diff_record(records[username], self.cache[username]) for username in self.user_list if username in self.cache}
+        diffs = {username:AtCoderInfoCache.__diff_record(records[username], self.cache[username]) for username in self.user_list if username in self.cache and self.cache[username] is not None}
         return records, diffs
+
+    def __get_users(user_list):
+        return {username:AtCoderInfo.get_user(username) for username in user_list}
 
     def __load_cache(path):
         try:
