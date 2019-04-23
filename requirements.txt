@@ -1,3 +1,4 @@
 requests == 2.21.0
 bs4 == 0.0.1
 -e git+https://github.com/Rapptz/discord.py.git@rewrite#egg=discord.py
+-e git+https://github.com/iwatepu-cpc/libavc.py.git#egg=libavc.py

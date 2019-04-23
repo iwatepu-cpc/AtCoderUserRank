@@ -3,9 +3,13 @@ import os
 from discord.ext import commands
 from discord.utils import get
 from AtCoderInfoCache import AtCoderInfoCache
+import libavc.AtCoderVirtualContest as AVC
+import random
+import datetime
 
 AtCoderUsers = AtCoderInfoCache('cache', 'users.list')
 bot = commands.Bot(command_prefix='/', description='サークル雑務コマンド')
+contest = None
 
 __rating_colors__ = [
         (0, (128, 128, 128)),
@@ -56,7 +60,7 @@ def necessary_for_next_rating(records):
         res[record['name']] = target - record['rating']
     return res
 
-@bot.command(pass_context=True)
+@bot.command(pass_context=True, brief='AtCoderのレート変動を通知します。', description='AtCoderレートのキャッシュからの差分を検知し、変動を通知します。今のところAtCoder IDは手動で追加しているので。追加して欲しい人は管理者に問い合わせてね。')
 async def rating(ctx):
     global AtCoderUsers
     records, diffs = AtCoderUsers.get_latest()
@@ -93,6 +97,114 @@ async def rating(ctx):
             await ctx.send("**{}**さんが昇格しました。おめでとう！".format(username))
 
 
+
+abc_url = "https://atcoder.jp/contests/abc{0}/tasks/abc{0}_{1}"
+def choose_problem(ch):
+    ch = ch.lower()
+    contest_number = "{0:03d}".format(random.randint(20, 124))
+    if ch in 'abcd':
+        return abc_url.format(contest_number, ch)
+    else:
+        return abc_url.format(contest_number, random.choice(['a', 'b', 'c', 'd']))
+
+@bot.command(pass_context=True, brief='/vnew [a-d]+: AtCoder Virtual Contestを作成します。', description='問題アルファベットを受け取り、AtCoder Virtual Contestを作成します。')
+async def vnew(ctx, arg1):
+    global contest
+    if contest != None:
+        await ctx.send('既にコンテストが存在します。')
+        return
+    problems = [choose_problem(ch) for ch in arg1]
+    try:
+        problems = list(map(AVC.Problem, problems))
+    except:
+        await ctx.send('問題の追加に失敗しました。')
+        return
+    contest = AVC.Contest(problems)
+    await ctx.send('コンテストを開始する準備が出来ました。')
+
+@bot.command(pass_context=True, brief='/vjoin <AtCoderID>: AtCoder Virtual Contestに参加します。', description='指定したAtCoder IDをAtCoder Virtual Contestに参加させます。')
+async def vjoin(ctx, arg1=None):
+    global contest
+    if contest == None:
+        await ctx.send('参加可能なコンテストが存在しません。')
+        return
+    if arg1 == None:
+        await ctx.send('参加するAtCoder IDを入力してください。')
+        return
+    if contest.participate(arg1):
+        await ctx.send(f'AtCoder ID:{arg1}がコンテストに参加しました。')
+    else:
+        await ctx.send('有効なAtCoder IDではありません。')
+
+@bot.command(pass_context=True, brief='/vstart : AtCoder Virtual Contestを現在時刻より開始します。')
+async def vstart(ctx):
+    global contest
+    if contest == None:
+        await ctx.send('開始可能なコンテストが存在しません。')
+        return
+    contest.start_now()
+    now = contest.start_time.strftime('%Y/%m/%d %H:%M:%S')
+    await ctx.send(f'コンテストが開始されました。({now}~)\n'+'\n'.join(
+        list(map(lambda p:p.url, contest.problems))))
+
+@bot.command(pass_context=True, brief='/vstat : AtCoder Virtual Contestの記録を更新し、通知します。')
+async def vstat(ctx):
+    global contest
+    if contest == None or contest.start_time == None:
+        await ctx.send('開催中のコンテストが存在しません。')
+        return
+    diff = contest.update()
+    text = ""
+    for user, tasks in diff.items():
+        for task, state in tasks.items():
+            lang = state['lang']
+            time = state['time'].astimezone()
+            delta = str(time - contest.start_time)
+            text += f'{user}が{task}を{lang}でACしました！({delta})\n'
+    if text == "":
+        await ctx.send("新たなACは無いぞ！\nみんな頑張れ！")
+        return
+    await ctx.send(text)
+
+@bot.command(pass_context=True, brief='AtCoder Virtual Contestを終了し、ランキングを表示します。')
+async def vend(ctx):
+    global contest
+    if contest == None:
+        await ctx.send('終了するコンテストが存在しません。')
+        return
+    if contest.start_time == None:
+        contest = None
+        await ctx.send('開催予定のコンテストを破棄しました。')
+        return
+    contest.update()
+    result = contest.end()
+    tasknames = list(map(lambda s:s.task, contest.problems))
+    result = list(result.items())
+    result.sort(key=lambda r:sum([(state['time'].astimezone()-contest.start_time).total_seconds() for state in r[1].values() if state['time'] != None]))
+    result.sort(key=lambda r:sum([state['status'] for state in r[1].values()]), reverse=True)
+    now = datetime.datetime.now().astimezone()
+    nowstr = now.strftime('%Y/%m/%d %H:%M:%S')
+    delta = int((now - contest.start_time).total_seconds() / 60)
+    text = f'{delta}分間のコンテストが終了しました！({nowstr})\n'
+    text += '```\n'
+    text += 'RANKING'.ljust(20)
+    for task in tasknames:
+        text += task.center(20)
+    text += '\n'
+    for user, tasks in result:
+        text += user.ljust(20)
+        for tname in tasknames:
+            state = tasks[tname]
+            if state['status']:
+                time = state['time'].astimezone()
+                delta = str(time - contest.start_time)
+                text += delta.center(20)
+            else:
+                text += '-'.center(20)
+        text += '\n'
+    text += '```'
+    contest = None
+    await ctx.send(text)
 
 @bot.event
 async def on_ready():
