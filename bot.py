@@ -166,6 +166,8 @@ async def avc_broadcast(ctx):
     global contest, sleep_seconds
     while contest != None:
         await asyncio.sleep(sleep_seconds)
+        if contest == None:
+            break
         text = avc_stat(contest)
         await ctx.send(text)
         if sleep_seconds < 900:
