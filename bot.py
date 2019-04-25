@@ -142,6 +142,9 @@ async def vstart(ctx):
     if contest == None:
         await ctx.send('開始可能なコンテストが存在しません。')
         return
+    if contest.start_time != None:
+        await ctx.send('既にコンテストが開始されています。')
+        return
     contest.start_now()
     now = contest.start_time.strftime('%Y/%m/%d %H:%M:%S')
     await ctx.send(f'コンテストが開始されました。({now}~)\n'+'\n'.join(
