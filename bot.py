@@ -115,10 +115,18 @@ async def vnew(ctx, arg1):
     if contest != None:
         await ctx.send('既にコンテストが存在します。')
         return
-    problems = [choose_problem(ch) for ch in arg1]
-    try:
-        problems = list(map(AVC.Problem, problems))
-    except:
+    count = 0
+    flag = False
+    while count < 10:
+        problems = [choose_problem(ch) for ch in arg1]
+        try:
+            problems = list(map(AVC.Problem, problems))
+            flag = True
+            break
+        except:
+            count += 1
+            continue
+    if flag == False:
         await ctx.send('問題の追加に失敗しました。')
         return
     contest = AVC.Contest(problems)
