@@ -6,10 +6,12 @@ from AtCoderInfoCache import AtCoderInfoCache
 import libavc.AtCoderVirtualContest as AVC
 import random
 import datetime
+import asyncio
 
 AtCoderUsers = AtCoderInfoCache('cache', 'users.list')
 bot = commands.Bot(command_prefix='/', description='サークル雑務コマンド')
 contest = None
+sleep_seconds = 60
 
 __rating_colors__ = [
         (0, (128, 128, 128)),
@@ -138,7 +140,7 @@ async def vjoin(ctx, arg1=None):
 
 @bot.command(pass_context=True, brief='/vstart : AtCoder Virtual Contestを現在時刻より開始します。')
 async def vstart(ctx):
-    global contest
+    global contest, sleep_seconds
     if contest == None:
         await ctx.send('開始可能なコンテストが存在しません。')
         return
@@ -149,13 +151,20 @@ async def vstart(ctx):
     now = contest.start_time.strftime('%Y/%m/%d %H:%M:%S')
     await ctx.send(f'コンテストが開始されました。({now}~)\n'+'\n'.join(
         list(map(lambda p:p.url, contest.problems))))
+    sleep_seconds = 60
+    asyncio.ensure_future(avc_broadcast(ctx))
 
-@bot.command(pass_context=True, brief='/vstat : AtCoder Virtual Contestの記録を更新し、通知します。')
-async def vstat(ctx):
-    global contest
-    if contest == None or contest.start_time == None:
-        await ctx.send('開催中のコンテストが存在しません。')
-        return
+async def avc_broadcast(ctx):
+    global contest, sleep_seconds
+    while contest != None:
+        await asyncio.sleep(sleep_seconds)
+        text = avc_stat(contest)
+        await ctx.send(text)
+        if sleep_seconds < 900:
+            sleep_seconds += 120
+
+def avc_stat(contest):
+    dmin = round((datetime.datetime.now().astimezone() - contest.start_time).total_seconds() / 60)
     diff = contest.update()
     text = ""
     for user, tasks in diff.items():
@@ -165,8 +174,17 @@ async def vstat(ctx):
             delta = str(time - contest.start_time)
             text += f'{user}が{task}を{lang}でACしました！({delta})\n'
     if text == "":
-        await ctx.send("新たなACは無いぞ！\nみんな頑張れ！")
+        text = '新たなACは無いぞ！\nみんな頑張れ！'
+        text += f'(開始から{dmin}分経過)'
+    return text
+
+@bot.command(pass_context=True, brief='/vstat : AtCoder Virtual Contestの記録を更新し、通知します。')
+async def vstat(ctx):
+    global contest
+    if contest == None or contest.start_time == None:
+        await ctx.send('開催中のコンテストが存在しません。')
         return
+    text = avc_stat(contest)
     await ctx.send(text)
 
 @bot.command(pass_context=True, brief='AtCoder Virtual Contestを終了し、ランキングを表示します。')
